@@ -1,0 +1,35 @@
+[package]
+name = "alice-simd"
+version = "1.0.0"
+edition = "2021"
+authors = ["Moroya Sakamoto"]
+description = "Shared SIMD, branchless, and fast-math primitives for the ALICE ecosystem"
+license-file = "LICENSE"
+publish = false
+repository = "https://github.com/ext-sakamoro/ALICE-SIMD"
+keywords = ["simd", "branchless", "fast-math", "no_std"]
+categories = ["no-std", "algorithms"]
+
+[lib]
+name = "alice_simd"
+crate-type = ["rlib"]
+
+[features]
+default = ["std"]
+std = []
+
+[dev-dependencies]
+# none needed — all tests use core/alloc only
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = false
