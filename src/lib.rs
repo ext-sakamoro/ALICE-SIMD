@@ -26,6 +26,8 @@ pub mod aligned;
 pub mod bitmask;
 pub mod branchless;
 pub mod fast_math;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 pub mod hash;
 
 pub use aligned::AlignedVec;

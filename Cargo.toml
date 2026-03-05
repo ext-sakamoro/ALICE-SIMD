@@ -12,11 +12,12 @@ categories = ["no-std", "algorithms"]
 
 [lib]
 name = "alice_simd"
-crate-type = ["rlib"]
+crate-type = ["rlib", "cdylib"]
 
 [features]
 default = ["std"]
 std = []
+ffi = ["std"]
 
 [dev-dependencies]
 # none needed — all tests use core/alloc only
