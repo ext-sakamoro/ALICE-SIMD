@@ -31,7 +31,7 @@ impl<T> AlignedVec<T> {
     /// Creates a new, empty `AlignedVec<T>`.
     #[inline(always)]
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { inner: Vec::new() }
     }
 
@@ -54,14 +54,14 @@ impl<T> AlignedVec<T> {
     /// Returns the number of elements in the vector.
     #[inline(always)]
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns `true` when the vector contains no elements.
     #[inline(always)]
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
@@ -69,20 +69,20 @@ impl<T> AlignedVec<T> {
     /// reallocating.
     #[inline(always)]
     #[must_use]
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.inner.capacity()
     }
 
     /// Returns a shared slice of the contents.
     #[inline(always)]
     #[must_use]
-    pub fn as_slice(&self) -> &[T] {
+    pub const fn as_slice(&self) -> &[T] {
         self.inner.as_slice()
     }
 
     /// Returns a mutable slice of the contents.
     #[inline(always)]
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
+    pub const fn as_mut_slice(&mut self) -> &mut [T] {
         self.inner.as_mut_slice()
     }
 
@@ -120,13 +120,13 @@ impl<T> AlignedVec<T> {
     /// Returns a raw pointer to the first element (or dangling if empty).
     #[inline(always)]
     #[must_use]
-    pub fn as_ptr(&self) -> *const T {
+    pub const fn as_ptr(&self) -> *const T {
         self.inner.as_ptr()
     }
 
     /// Returns a mutable raw pointer to the first element.
     #[inline(always)]
-    pub fn as_mut_ptr(&mut self) -> *mut T {
+    pub const fn as_mut_ptr(&mut self) -> *mut T {
         self.inner.as_mut_ptr()
     }
 
@@ -226,6 +226,7 @@ impl<T> core::ops::IndexMut<usize> for AlignedVec<T> {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
     use alloc::vec;

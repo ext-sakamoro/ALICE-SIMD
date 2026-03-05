@@ -51,7 +51,7 @@ pub const SIMD_WIDTH: usize = if cfg!(target_feature = "avx2") {
 /// Align a count up to the next multiple of `SIMD_WIDTH`.
 #[inline(always)]
 #[must_use]
-pub fn align_up(n: usize) -> usize {
+pub const fn align_up(n: usize) -> usize {
     (n + SIMD_WIDTH - 1) & !(SIMD_WIDTH - 1)
 }
 

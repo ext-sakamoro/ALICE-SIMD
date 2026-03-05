@@ -54,14 +54,14 @@ impl BitMask64 {
     /// Bitwise AND.
     #[inline(always)]
     #[must_use]
-    pub fn and(self, other: Self) -> Self {
+    pub const fn and(self, other: Self) -> Self {
         Self(self.0 & other.0)
     }
 
     /// Bitwise OR.
     #[inline(always)]
     #[must_use]
-    pub fn or(self, other: Self) -> Self {
+    pub const fn or(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
@@ -71,56 +71,56 @@ impl BitMask64 {
     #[inline(always)]
     #[must_use]
     #[allow(clippy::should_implement_trait)]
-    pub fn not(self) -> Self {
+    pub const fn not(self) -> Self {
         Self(!self.0)
     }
 
     /// Bitwise XOR.
     #[inline(always)]
     #[must_use]
-    pub fn xor(self, other: Self) -> Self {
+    pub const fn xor(self, other: Self) -> Self {
         Self(self.0 ^ other.0)
     }
 
     /// Number of bits that are set (population count / `popcnt`).
     #[inline(always)]
     #[must_use]
-    pub fn count_ones(self) -> u32 {
+    pub const fn count_ones(self) -> u32 {
         self.0.count_ones()
     }
 
     /// Number of leading zero bits.
     #[inline(always)]
     #[must_use]
-    pub fn leading_zeros(self) -> u32 {
+    pub const fn leading_zeros(self) -> u32 {
         self.0.leading_zeros()
     }
 
     /// Number of trailing zero bits.
     #[inline(always)]
     #[must_use]
-    pub fn trailing_zeros(self) -> u32 {
+    pub const fn trailing_zeros(self) -> u32 {
         self.0.trailing_zeros()
     }
 
     /// Returns `true` if at least one bit is set.
     #[inline(always)]
     #[must_use]
-    pub fn any(self) -> bool {
+    pub const fn any(self) -> bool {
         self.0 != 0
     }
 
     /// Returns `true` if all 64 bits are set.
     #[inline(always)]
     #[must_use]
-    pub fn all(self) -> bool {
+    pub const fn all(self) -> bool {
         self.0 == u64::MAX
     }
 
     /// Returns `true` if no bits are set.
     #[inline(always)]
     #[must_use]
-    pub fn none(self) -> bool {
+    pub const fn none(self) -> bool {
         self.0 == 0
     }
 
@@ -144,7 +144,7 @@ impl BitMask64 {
     /// Returns an iterator over the indices of all **set** bits.
     #[inline(always)]
     #[must_use]
-    pub fn iter_set_bits(self) -> SetBitIterator {
+    pub const fn iter_set_bits(self) -> SetBitIterator {
         SetBitIterator { mask: self.0 }
     }
 }
@@ -177,7 +177,7 @@ impl core::ops::Not for BitMask64 {
     type Output = Self;
     #[inline(always)]
     fn not(self) -> Self {
-        BitMask64::not(self)
+        Self::not(self)
     }
 }
 

@@ -91,7 +91,7 @@ pub fn branchless_clamp(x: f32, lo: f32, hi: f32) -> f32 {
 /// ```
 #[inline(always)]
 #[must_use]
-pub fn branchless_abs(x: f32) -> f32 {
+pub const fn branchless_abs(x: f32) -> f32 {
     // Clear the sign bit (bit 31)
     f32::from_bits(x.to_bits() & 0x7FFF_FFFF)
 }
@@ -101,7 +101,7 @@ pub fn branchless_abs(x: f32) -> f32 {
 /// Returns `1.0` if `x >= 0.0`, `-1.0` otherwise — without branching.
 #[inline(always)]
 #[must_use]
-pub fn branchless_sign(x: f32) -> f32 {
+pub const fn branchless_sign(x: f32) -> f32 {
     // Preserve the sign bit, set the exponent+mantissa to 1.0 (0x3F800000)
     let sign_bit = x.to_bits() & 0x8000_0000;
     f32::from_bits(sign_bit | 0x3F80_0000)
@@ -120,7 +120,7 @@ pub fn branchless_signum(x: f32) -> f32 {
 /// Returns `true` if `x` is negative (including negative zero) — branchless.
 #[inline(always)]
 #[must_use]
-pub fn is_negative(x: f32) -> bool {
+pub const fn is_negative(x: f32) -> bool {
     // Sign bit is the MSB
     (x.to_bits() >> 31) != 0
 }
@@ -128,6 +128,7 @@ pub fn is_negative(x: f32) -> bool {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
