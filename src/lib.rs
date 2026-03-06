@@ -29,6 +29,7 @@ pub mod fast_math;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 pub mod hash;
+pub mod vec3;
 
 pub use aligned::AlignedVec;
 pub use bitmask::{BitMask64, ComparisonMask, SetBitIterator};
@@ -40,6 +41,7 @@ pub use fast_math::{
     fma, fma_chain, length_squared, lerp, normalize, Reciprocals, RECIPROCALS,
 };
 pub use hash::fnv1a;
+pub use vec3::{Vec3, Vec4};
 
 /// SIMD width for the current platform (in f32 lanes).
 pub const SIMD_WIDTH: usize = if cfg!(target_feature = "avx2") {
