@@ -393,9 +393,9 @@ mod tests {
     #[test]
     fn vec3_new() {
         let v = Vec3::new(1.0, 2.0, 3.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.y, 2.0);
-        assert_eq!(v.z, 3.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.y - 2.0).abs() < f32::EPSILON);
+        assert!((v.z - 3.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -529,7 +529,9 @@ mod tests {
     fn vec3_to_from_array() {
         let v = Vec3::new(1.0, 2.0, 3.0);
         let arr = v.to_array();
-        assert_eq!(arr, [1.0, 2.0, 3.0]);
+        assert!((arr[0] - 1.0).abs() < f32::EPSILON);
+        assert!((arr[1] - 2.0).abs() < f32::EPSILON);
+        assert!((arr[2] - 3.0).abs() < f32::EPSILON);
         assert_eq!(Vec3::from_array(arr), v);
     }
 
@@ -558,8 +560,8 @@ mod tests {
     #[test]
     fn vec4_new() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
-        assert_eq!(v.x, 1.0);
-        assert_eq!(v.w, 4.0);
+        assert!((v.x - 1.0).abs() < f32::EPSILON);
+        assert!((v.w - 4.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -634,7 +636,10 @@ mod tests {
     fn vec4_to_from_array() {
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         let arr = v.to_array();
-        assert_eq!(arr, [1.0, 2.0, 3.0, 4.0]);
+        assert!((arr[0] - 1.0).abs() < f32::EPSILON);
+        assert!((arr[1] - 2.0).abs() < f32::EPSILON);
+        assert!((arr[2] - 3.0).abs() < f32::EPSILON);
+        assert!((arr[3] - 4.0).abs() < f32::EPSILON);
         assert_eq!(Vec4::from_array(arr), v);
     }
 
