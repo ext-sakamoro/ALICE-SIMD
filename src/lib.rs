@@ -37,8 +37,9 @@ pub use branchless::{
     branchless_abs, branchless_clamp, branchless_max, branchless_min, select_f32,
 };
 pub use fast_math::{
-    batch_fma, batch_mul_scalar, deg_to_rad, distance_squared, fast_inv_sqrt, fast_rcp, fast_sqrt,
-    fma, fma_chain, length_squared, lerp, normalize, Reciprocals, RECIPROCALS,
+    batch_fma, batch_mul_scalar, deg_to_rad, distance_squared, fast_exp, fast_inv_sqrt, fast_rcp,
+    fast_sqrt, fma, fma_chain, length_squared, lerp, normalize, rmsnorm, rmsnorm_inplace, softmax,
+    softmax_inplace, Reciprocals, RECIPROCALS,
 };
 pub use hash::fnv1a;
 pub use vec3::{Vec3, Vec4};

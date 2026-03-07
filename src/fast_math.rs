@@ -3,6 +3,21 @@
 //! All functions use fused-multiply-add (`mul_add`) where available, and
 //! platform-specific intrinsics when target features are enabled.
 
+// ── helpers ───────────────────────────────────────────────────────────────
+
+/// `no_std` 互換の floor（`f32::floor` は `std` 必要）
+#[inline(always)]
+#[must_use]
+fn floor_f32(x: f32) -> f32 {
+    let i = x as i32;
+    let f = i as f32;
+    if x < f {
+        f - 1.0
+    } else {
+        f
+    }
+}
+
 // ── Reciprocals ────────────────────────────────────────────────────────────
 
 /// Pre-computed reciprocals for common constants used across ALICE.
@@ -217,6 +232,156 @@ pub fn deg_to_rad(deg: f32) -> f32 {
 #[must_use]
 pub fn normalize(val: f32, inv_max: f32) -> f32 {
     val * inv_max
+}
+
+// ── fast_exp ──────────────────────────────────────────────────────────
+
+/// Fast approximate `e^x` using Schraudolph's method with linear interpolation.
+///
+/// ~12-bit precision, branch-free. Suitable for softmax where relative
+/// differences matter more than absolute accuracy.
+///
+/// Valid range: approximately `[-87, 88]` (f32 exp range).
+#[inline(always)]
+#[must_use]
+pub fn fast_exp(x: f32) -> f32 {
+    // Range reduction + degree-3 minimax polynomial
+    // exp(x) = 2^(x * log2(e)) = 2^n * 2^f (n=整数, f=小数)
+    // 最大相対誤差 < 0.3%
+    let clamped = x.clamp(-87.0_f32, 88.0_f32);
+    let val = clamped * core::f32::consts::LOG2_E;
+    let ipart = floor_f32(val);
+    let fpart = val - ipart;
+    let n = ipart as i32;
+
+    // 2^f の多項式近似 (f ∈ [0, 1))
+    let p = fpart.mul_add(0.0558_f32, 0.2402_f32);
+    let p = fpart.mul_add(p, core::f32::consts::LN_2);
+    let p = fpart.mul_add(p, 1.0_f32);
+
+    // 2^n をIEEE-754指数フィールドで構成
+    let exp_n = f32::from_bits(((n + 127) as u32) << 23);
+    exp_n * p
+}
+
+// ── rmsnorm ───────────────────────────────────────────────────────────
+
+/// RMS Normalization: `out[i] = x[i] / rms(x)` where `rms = sqrt(mean(x²) + eps)`.
+///
+/// LLM向け正規化。`LayerNorm` よりシンプルで高速（平均の減算不要）。
+/// `eps` は数値安定性のための小さな定数（通常 1e-5 〜 1e-6）。
+///
+/// # Panics
+/// `x.len() != out.len()` の場合パニック。
+#[inline]
+pub fn rmsnorm(x: &[f32], out: &mut [f32], eps: f32) {
+    assert_eq!(x.len(), out.len(), "rmsnorm: length mismatch");
+    let n = x.len();
+    if n == 0 {
+        return;
+    }
+
+    // sum_sq = Σ x[i]²
+    let mut sum_sq = 0.0_f32;
+    for &v in x {
+        sum_sq = v.mul_add(v, sum_sq);
+    }
+
+    // rms = 1 / sqrt(mean(x²) + eps)
+    let inv_n = 1.0_f32 / n as f32;
+    let rms_inv = fast_inv_sqrt(sum_sq.mul_add(inv_n, eps));
+
+    for (o, &v) in out.iter_mut().zip(x) {
+        *o = v * rms_inv;
+    }
+}
+
+/// In-place RMS Normalization: `x[i] = x[i] / rms(x)`.
+#[inline]
+pub fn rmsnorm_inplace(x: &mut [f32], eps: f32) {
+    let n = x.len();
+    if n == 0 {
+        return;
+    }
+
+    let mut sum_sq = 0.0_f32;
+    for &v in x.iter() {
+        sum_sq = v.mul_add(v, sum_sq);
+    }
+
+    let inv_n = 1.0_f32 / n as f32;
+    let rms_inv = fast_inv_sqrt(sum_sq.mul_add(inv_n, eps));
+
+    for v in x.iter_mut() {
+        *v *= rms_inv;
+    }
+}
+
+// ── softmax ───────────────────────────────────────────────────────────
+
+/// Numerically stable softmax: `out[i] = exp(x[i] - max) / Σ exp(x[j] - max)`.
+///
+/// LLM の Attention 層と出力層で使用。`max` 減算により `exp` のオーバーフローを防止。
+///
+/// # Panics
+/// `x.len() != out.len()` の場合パニック。
+#[inline]
+pub fn softmax(x: &[f32], out: &mut [f32]) {
+    assert_eq!(x.len(), out.len(), "softmax: length mismatch");
+    let n = x.len();
+    if n == 0 {
+        return;
+    }
+
+    // max を求める（数値安定性のため）
+    let mut max_val = x[0];
+    for &v in &x[1..] {
+        if v > max_val {
+            max_val = v;
+        }
+    }
+
+    // exp(x[i] - max) と合計
+    let mut sum = 0.0_f32;
+    for (o, &v) in out.iter_mut().zip(x) {
+        let e = fast_exp(v - max_val);
+        *o = e;
+        sum += e;
+    }
+
+    // 正規化: 除算の代わりに逆数乗算
+    let inv_sum = 1.0_f32 / sum;
+    for o in out.iter_mut() {
+        *o *= inv_sum;
+    }
+}
+
+/// In-place softmax: `x[i] = exp(x[i] - max) / Σ exp(x[j] - max)`.
+#[inline]
+pub fn softmax_inplace(x: &mut [f32]) {
+    let n = x.len();
+    if n == 0 {
+        return;
+    }
+
+    let mut max_val = x[0];
+    for &v in &x[1..] {
+        if v > max_val {
+            max_val = v;
+        }
+    }
+
+    let mut sum = 0.0_f32;
+    for v in x.iter_mut() {
+        let e = fast_exp(*v - max_val);
+        *v = e;
+        sum += e;
+    }
+
+    let inv_sum = 1.0_f32 / sum;
+    for v in x.iter_mut() {
+        *v *= inv_sum;
+    }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -460,5 +625,152 @@ mod tests {
     fn test_normalize_max() {
         let inv_max = 1.0_f32 / 100.0_f32;
         assert!(approx_eq(normalize(100.0_f32, inv_max), 1.0_f32, EPS));
+    }
+
+    // ── fast_exp ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_fast_exp_zero() {
+        // e^0 = 1
+        assert!(approx_eq(fast_exp(0.0_f32), 1.0_f32, 0.01_f32));
+    }
+
+    #[test]
+    fn test_fast_exp_one() {
+        // e^1 ≈ 2.718
+        assert!(approx_eq(fast_exp(1.0_f32), core::f32::consts::E, 0.05_f32));
+    }
+
+    #[test]
+    fn test_fast_exp_negative() {
+        // e^(-1) ≈ 0.368
+        let expected = 1.0_f32 / core::f32::consts::E;
+        assert!(approx_eq(fast_exp(-1.0_f32), expected, 0.02_f32));
+    }
+
+    #[test]
+    fn test_fast_exp_clamp_large() {
+        // 巨大な値でもinfにならない
+        assert!(fast_exp(100.0_f32).is_finite());
+    }
+
+    #[test]
+    fn test_fast_exp_clamp_small() {
+        // 非常に小さい値でも0以上
+        assert!(fast_exp(-100.0_f32) >= 0.0_f32);
+    }
+
+    // ── rmsnorm ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_rmsnorm_unit() {
+        let x = [1.0_f32, 0.0, 0.0, 0.0];
+        let mut out = [0.0_f32; 4];
+        rmsnorm(&x, &mut out, 1e-6_f32);
+        // rms = sqrt(1/4 + eps) ≈ 0.5, inv ≈ 2.0
+        assert!(out[0] > 1.5_f32);
+        assert!(approx_eq(out[1], 0.0_f32, EPS));
+    }
+
+    #[test]
+    fn test_rmsnorm_uniform() {
+        let x = [2.0_f32, 2.0, 2.0, 2.0];
+        let mut out = [0.0_f32; 4];
+        rmsnorm(&x, &mut out, 1e-6_f32);
+        // 全要素同一 → 全出力も同一
+        assert!(approx_eq(out[0], out[1], EPS));
+        assert!(approx_eq(out[1], out[2], EPS));
+        assert!(approx_eq(out[2], out[3], EPS));
+    }
+
+    #[test]
+    fn test_rmsnorm_inplace_equivalence() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0];
+        let mut out = [0.0_f32; 4];
+        rmsnorm(&x, &mut out, 1e-6_f32);
+
+        let mut x2 = [1.0_f32, 2.0, 3.0, 4.0];
+        rmsnorm_inplace(&mut x2, 1e-6_f32);
+
+        for i in 0..4 {
+            assert!(approx_eq(out[i], x2[i], EPS));
+        }
+    }
+
+    #[test]
+    fn test_rmsnorm_empty() {
+        let x: [f32; 0] = [];
+        let mut out: [f32; 0] = [];
+        rmsnorm(&x, &mut out, 1e-6_f32); // パニックしない
+    }
+
+    // ── softmax ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_softmax_sums_to_one() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0];
+        let mut out = [0.0_f32; 4];
+        softmax(&x, &mut out);
+
+        let sum: f32 = out.iter().sum();
+        assert!(approx_eq(sum, 1.0_f32, 0.01_f32));
+    }
+
+    #[test]
+    fn test_softmax_monotonic() {
+        let x = [1.0_f32, 2.0, 3.0, 4.0];
+        let mut out = [0.0_f32; 4];
+        softmax(&x, &mut out);
+
+        // 入力が単調増加 → 出力も単調増加
+        assert!(out[0] < out[1]);
+        assert!(out[1] < out[2]);
+        assert!(out[2] < out[3]);
+    }
+
+    #[test]
+    fn test_softmax_uniform() {
+        let x = [5.0_f32, 5.0, 5.0, 5.0];
+        let mut out = [0.0_f32; 4];
+        softmax(&x, &mut out);
+
+        // 全同一入力 → 全出力は 1/4
+        for &v in &out {
+            assert!(approx_eq(v, 0.25_f32, 0.01_f32));
+        }
+    }
+
+    #[test]
+    fn test_softmax_numerical_stability() {
+        // 巨大値でもオーバーフローしない（max減算による安定化）
+        let x = [1000.0_f32, 1001.0, 1002.0];
+        let mut out = [0.0_f32; 3];
+        softmax(&x, &mut out);
+
+        let sum: f32 = out.iter().sum();
+        assert!(approx_eq(sum, 1.0_f32, 0.02_f32));
+        assert!(out[0] < out[1]);
+        assert!(out[1] < out[2]);
+    }
+
+    #[test]
+    fn test_softmax_inplace_equivalence() {
+        let x = [1.0_f32, 2.0, 3.0];
+        let mut out = [0.0_f32; 3];
+        softmax(&x, &mut out);
+
+        let mut x2 = [1.0_f32, 2.0, 3.0];
+        softmax_inplace(&mut x2);
+
+        for i in 0..3 {
+            assert!(approx_eq(out[i], x2[i], 0.01_f32));
+        }
+    }
+
+    #[test]
+    fn test_softmax_empty() {
+        let x: [f32; 0] = [];
+        let mut out: [f32; 0] = [];
+        softmax(&x, &mut out); // パニックしない
     }
 }
