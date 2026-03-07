@@ -78,7 +78,11 @@ assert_eq!(mask.count_ones(), 8);
 |--------|-----------|-------|
 | x86_64 + AVX2 | 8 lanes | `f32 x 8` |
 | x86_64 (SSE) | 4 lanes | `f32 x 4` |
-| aarch64 (NEON) | 4 lanes | `f32 x 4`, Raspberry Pi 5 |
+| aarch64 (NEON) | 4 lanes | `f32 x 4`, Apple Silicon / Raspberry Pi 5 |
+
+Apple Silicon (M1/M2/M3/M4) と Raspberry Pi 5 は同じ ARM NEON 命令セットを使用。
+リコンパイルのみで両環境で動作し、`fast_exp`/`rmsnorm`/`softmax` 等の
+LLM推論プリミティブを統一コードで提供する。
 
 ## Quality
 
