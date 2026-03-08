@@ -5,7 +5,6 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Moroya Sakamoto"]
 description = "Shared SIMD, branchless, and fast-math primitives for the ALICE ecosystem"
-license-file = "LICENSE"
 publish = false
 repository = "https://github.com/ext-sakamoro/ALICE-SIMD"
 keywords = ["simd", "branchless", "fast-math", "no_std"]
