@@ -1,6 +1,6 @@
 [package]
 name = "alice-simd"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
@@ -20,7 +20,11 @@ std = []
 ffi = ["std"]
 
 [dev-dependencies]
-# none needed — all tests use core/alloc only
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "fast_math"
+harness = false
 
 [profile.release]
 opt-level = 3
