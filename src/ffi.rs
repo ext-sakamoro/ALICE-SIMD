@@ -61,7 +61,7 @@ pub unsafe extern "C" fn alice_aligned_vec_get(vec: *const AlignedVec<f32>, idx:
 ///
 /// `vec` は有効なポインタであること。
 #[no_mangle]
-pub unsafe extern "C" fn alice_aligned_vec_len(vec: *const AlignedVec<f32>) -> u32 {
+pub const unsafe extern "C" fn alice_aligned_vec_len(vec: *const AlignedVec<f32>) -> u32 {
     if vec.is_null() {
         return 0;
     }
@@ -88,7 +88,7 @@ pub unsafe extern "C" fn alice_aligned_vec_destroy(vec: *mut AlignedVec<f32>) {
 ///
 /// 常に安全。
 #[no_mangle]
-pub extern "C" fn alice_bitmask_new(bits: u64) -> u64 {
+pub const extern "C" fn alice_bitmask_new(bits: u64) -> u64 {
     BitMask64(bits).0
 }
 
@@ -124,7 +124,7 @@ pub extern "C" fn alice_bitmask_test(mask: u64, i: u32) -> u8 {
 ///
 /// 常に安全。
 #[no_mangle]
-pub extern "C" fn alice_bitmask_count_ones(mask: u64) -> u32 {
+pub const extern "C" fn alice_bitmask_count_ones(mask: u64) -> u32 {
     BitMask64(mask).count_ones()
 }
 
@@ -134,7 +134,7 @@ pub extern "C" fn alice_bitmask_count_ones(mask: u64) -> u32 {
 ///
 /// 常に安全。
 #[no_mangle]
-pub extern "C" fn alice_bitmask_and(a: u64, b: u64) -> u64 {
+pub const extern "C" fn alice_bitmask_and(a: u64, b: u64) -> u64 {
     BitMask64(a).and(BitMask64(b)).0
 }
 
@@ -256,7 +256,10 @@ mod tests {
     fn test_null_safety() {
         unsafe {
             alice_aligned_vec_push(core::ptr::null_mut(), 1.0);
-            assert_eq!(alice_aligned_vec_get(core::ptr::null(), 0), 0.0);
+            assert_eq!(
+                alice_aligned_vec_get(core::ptr::null(), 0).to_bits(),
+                0.0_f32.to_bits()
+            );
             assert_eq!(alice_aligned_vec_len(core::ptr::null()), 0);
             alice_aligned_vec_destroy(core::ptr::null_mut());
         }

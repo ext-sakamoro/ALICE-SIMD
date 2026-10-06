@@ -6,6 +6,47 @@
 //! - Branchless `select`, `min`, `max`, `clamp`, `abs` for f32
 //! - Fast math: `fast_rcp`, `fast_inv_sqrt`, `fma`, `lerp`
 //! - `fnv1a`: deterministic hash for content deduplication
+//!
+//! # Example
+//!
+//! The same example is the first code block of README.md
+//! (`scripts/docs_lint.py` checks that the two are identical).
+//!
+//! ```rust
+//! use alice_simd::{branchless_min, fast_exp, fnv1a, rmsnorm, softmax, AlignedVec, BitMask64};
+//!
+//! // fast exp (< 0.3% relative error)
+//! let e = fast_exp(1.0);
+//! assert!((e - core::f32::consts::E).abs() < 0.01);
+//!
+//! // RMSNorm (LLM layer normalization), destination-passing style
+//! let x = [1.0_f32, 2.0, 3.0, 4.0];
+//! let mut out = [0.0_f32; 4];
+//! rmsnorm(&x, &mut out, 1e-6);
+//!
+//! // numerically stable softmax
+//! let logits = [1.0_f32, 2.0, 3.0];
+//! let mut probs = [0.0_f32; 3];
+//! softmax(&logits, &mut probs);
+//! assert!((probs.iter().sum::<f32>() - 1.0).abs() < 1e-3);
+//!
+//! // branch-free min
+//! assert_eq!(branchless_min(3.0, 2.0), 2.0);
+//!
+//! // 32-byte aligned buffer for SIMD loads / stores
+//! let mut buf = AlignedVec::<f32>::new();
+//! buf.push(1.0);
+//! assert_eq!(buf.as_ptr() as usize % 32, 0);
+//!
+//! // 64-bit mask
+//! let mask = BitMask64(0xFF).set(10);
+//! assert_eq!(mask.count_ones(), 9);
+//! assert!(mask.test(10));
+//!
+//! // deterministic content hash
+//! let h = fnv1a(b"alice");
+//! assert_eq!(h, fnv1a(b"alice"));
+//! ```
 
 #![no_std]
 #![allow(
@@ -21,6 +62,10 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 extern crate std;
+
+// `fma` / `sqrt` need either `std` or `libm` (see `fast_math`)
+#[cfg(not(any(feature = "std", feature = "libm")))]
+compile_error!("alice-simd needs feature `std` (default) or, for no_std targets, feature `libm`");
 
 pub mod aligned;
 pub mod bitmask;

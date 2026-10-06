@@ -46,7 +46,7 @@ fn neon_inv_sqrt(x: f32) -> f32 {
 use core::arch::aarch64::vmul_f32;
 
 fn bench_rcp(c: &mut Criterion) {
-    let vals: Vec<f32> = (1..=1024).map(|i| i as f32 * 0.1).collect();
+    let vals: Vec<f32> = (1..=1024_u16).map(|i| f32::from(i) * 0.1).collect();
 
     c.bench_function("fast_rcp (non-x86: 1.0/x)", |b| {
         b.iter(|| {
@@ -55,7 +55,7 @@ fn bench_rcp(c: &mut Criterion) {
                 sum += fast_rcp(black_box(x));
             }
             sum
-        })
+        });
     });
 
     c.bench_function("baseline: 1.0/x direct", |b| {
@@ -65,7 +65,7 @@ fn bench_rcp(c: &mut Criterion) {
                 sum += 1.0_f32 / black_box(x);
             }
             sum
-        })
+        });
     });
 
     #[cfg(target_arch = "aarch64")]
@@ -76,7 +76,7 @@ fn bench_rcp(c: &mut Criterion) {
                 sum += neon_rcp(black_box(x));
             }
             sum
-        })
+        });
     });
 
     #[cfg(target_arch = "aarch64")]
@@ -87,12 +87,12 @@ fn bench_rcp(c: &mut Criterion) {
                 sum += neon_rcp_no_refine(black_box(x));
             }
             sum
-        })
+        });
     });
 }
 
 fn bench_inv_sqrt(c: &mut Criterion) {
-    let vals: Vec<f32> = (1..=1024).map(|i| i as f32 * 0.1).collect();
+    let vals: Vec<f32> = (1..=1024_u16).map(|i| f32::from(i) * 0.1).collect();
 
     c.bench_function("fast_inv_sqrt (non-x86: 1.0/x.sqrt())", |b| {
         b.iter(|| {
@@ -101,7 +101,7 @@ fn bench_inv_sqrt(c: &mut Criterion) {
                 sum += fast_inv_sqrt(black_box(x));
             }
             sum
-        })
+        });
     });
 
     c.bench_function("baseline: 1.0/x.sqrt() direct", |b| {
@@ -111,7 +111,7 @@ fn bench_inv_sqrt(c: &mut Criterion) {
                 sum += 1.0_f32 / black_box(x).sqrt();
             }
             sum
-        })
+        });
     });
 
     #[cfg(target_arch = "aarch64")]
@@ -122,7 +122,7 @@ fn bench_inv_sqrt(c: &mut Criterion) {
                 sum += neon_inv_sqrt(black_box(x));
             }
             sum
-        })
+        });
     });
 }
 

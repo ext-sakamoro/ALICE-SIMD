@@ -1,9 +1,44 @@
 //! Fast math primitives — reciprocals, inverse square root, FMA, lerp, etc.
 //!
-//! All functions use fused-multiply-add (`mul_add`) where available, and
+//! All functions use fused-multiply-add (`mul_add`, or `libm::fmaf` without
+//! `std`) where available, and
 //! platform-specific intrinsics when target features are enabled.
 
 // ── helpers ───────────────────────────────────────────────────────────────
+
+// `f32::mul_add` and `f32::sqrt` live in `std`. Without `std` the `libm`
+// feature supplies `fmaf` / `sqrtf`; both are correctly rounded (IEEE 754
+// `fusedMultiplyAdd` / `squareRoot`), so the two builds return the same bits
+// (`parity::libm_matches_std_*`).
+
+/// `a * b + c` with a single rounding.
+#[inline(always)]
+#[must_use]
+fn mul_add_f32(a: f32, b: f32, c: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        a.mul_add(b, c)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::fmaf(a, b, c)
+    }
+}
+
+/// Correctly rounded square root.
+#[cfg(not(all(target_arch = "x86_64", target_feature = "sse")))]
+#[inline(always)]
+#[must_use]
+fn sqrt_f32(x: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        x.sqrt()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrtf(x)
+    }
+}
 
 /// `no_std` 互換の floor（`f32::floor` は `std` 必要）
 #[inline(always)]
@@ -99,9 +134,9 @@ pub fn fast_rcp(x: f32) -> f32 {
 /// On `x86_64` with `sse` this uses `rsqrtss` (~2 cycles, ~12-bit precision).
 /// All other targets use IEEE `1.0 / x.sqrt()` (full 24-bit precision).
 ///
-/// The non-x86 path was previously the Quake III magic-number trick, but bench
-/// on Cortex-A78AE (Jetson Orin Nano) showed it 47% slower than the direct
-/// `1.0 / x.sqrt()` due to modern aarch64's fast pipelined `fsqrt`.
+/// The non-x86 path was previously the Quake III magic-number trick; on an
+/// aarch64 core (Cortex-A78AE) it measured 47% slower than the direct
+/// `1.0 / x.sqrt()`, because modern aarch64 has a fast pipelined `fsqrt`.
 #[inline(always)]
 #[must_use]
 pub fn fast_inv_sqrt(x: f32) -> f32 {
@@ -117,7 +152,7 @@ pub fn fast_inv_sqrt(x: f32) -> f32 {
     }
     #[cfg(not(all(target_arch = "x86_64", target_feature = "sse")))]
     {
-        1.0_f32 / x.sqrt()
+        1.0_f32 / sqrt_f32(x)
     }
 }
 
@@ -136,12 +171,13 @@ pub fn fast_sqrt(x: f32) -> f32 {
 
 /// Fused multiply-add: `a * b + c` in a single instruction when available.
 ///
-/// Uses `f32::mul_add` which compiles to `VFMADD*` on `x86_64` FMA3 and
-/// `FMLA` on aarch64.  Falls back to two instructions otherwise.
+/// Uses `f32::mul_add` (`libm::fmaf` without `std`), rounded once.  This is
+/// `VFMADD*` on `x86_64` with FMA3 and `FMADD` on aarch64; targets without a
+/// hardware FMA call a correctly rounded software `fmaf`.
 #[inline(always)]
 #[must_use]
 pub fn fma(a: f32, b: f32, c: f32) -> f32 {
-    a.mul_add(b, c)
+    mul_add_f32(a, b, c)
 }
 
 // ── fma_chain ──────────────────────────────────────────────────────────────
@@ -153,7 +189,7 @@ pub fn fma(a: f32, b: f32, c: f32) -> f32 {
 #[inline(always)]
 #[must_use]
 pub fn fma_chain(a: f32, b: f32, c: f32, d: f32) -> f32 {
-    a.mul_add(b, c * d)
+    mul_add_f32(a, b, c * d)
 }
 
 // ── lerp ───────────────────────────────────────────────────────────────────
@@ -165,7 +201,7 @@ pub fn fma_chain(a: f32, b: f32, c: f32, d: f32) -> f32 {
 #[must_use]
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     // fma(t, b - a, a)  →  t * (b-a) + a
-    t.mul_add(b - a, a)
+    mul_add_f32(t, b - a, a)
 }
 
 // ── distance_squared ───────────────────────────────────────────────────────
@@ -180,7 +216,7 @@ pub fn distance_squared(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     let dx = x1 - x2;
     let dy = y1 - y2;
     // fma(dx, dx, dy * dy)
-    dx.mul_add(dx, dy * dy)
+    mul_add_f32(dx, dx, dy * dy)
 }
 
 // ── length_squared ─────────────────────────────────────────────────────────
@@ -189,7 +225,7 @@ pub fn distance_squared(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
 #[inline(always)]
 #[must_use]
 pub fn length_squared(x: f32, y: f32) -> f32 {
-    x.mul_add(x, y * y)
+    mul_add_f32(x, x, y * y)
 }
 
 // ── batch helpers ──────────────────────────────────────────────────────────
@@ -208,7 +244,7 @@ pub fn batch_mul_scalar(data: &mut [f32], scalar: f32) {
 #[inline]
 pub fn batch_fma(data: &mut [f32], a: f32, b: f32) {
     for v in data.iter_mut() {
-        *v = v.mul_add(a, b);
+        *v = mul_add_f32(*v, a, b);
     }
 }
 
@@ -252,9 +288,9 @@ pub fn fast_exp(x: f32) -> f32 {
     let n = ipart as i32;
 
     // 2^f の多項式近似 (f ∈ [0, 1))
-    let p = fpart.mul_add(0.0558_f32, 0.2402_f32);
-    let p = fpart.mul_add(p, core::f32::consts::LN_2);
-    let p = fpart.mul_add(p, 1.0_f32);
+    let p = mul_add_f32(fpart, 0.0558_f32, 0.2402_f32);
+    let p = mul_add_f32(fpart, p, core::f32::consts::LN_2);
+    let p = mul_add_f32(fpart, p, 1.0_f32);
 
     // 2^n をIEEE-754指数フィールドで構成
     let exp_n = f32::from_bits(((n + 127) as u32) << 23);
@@ -281,12 +317,12 @@ pub fn rmsnorm(x: &[f32], out: &mut [f32], eps: f32) {
     // sum_sq = Σ x[i]²
     let mut sum_sq = 0.0_f32;
     for &v in x {
-        sum_sq = v.mul_add(v, sum_sq);
+        sum_sq = mul_add_f32(v, v, sum_sq);
     }
 
     // rms = 1 / sqrt(mean(x²) + eps)
     let inv_n = 1.0_f32 / n as f32;
-    let rms_inv = fast_inv_sqrt(sum_sq.mul_add(inv_n, eps));
+    let rms_inv = fast_inv_sqrt(mul_add_f32(sum_sq, inv_n, eps));
 
     for (o, &v) in out.iter_mut().zip(x) {
         *o = v * rms_inv;
@@ -303,11 +339,11 @@ pub fn rmsnorm_inplace(x: &mut [f32], eps: f32) {
 
     let mut sum_sq = 0.0_f32;
     for &v in x.iter() {
-        sum_sq = v.mul_add(v, sum_sq);
+        sum_sq = mul_add_f32(v, v, sum_sq);
     }
 
     let inv_n = 1.0_f32 / n as f32;
-    let rms_inv = fast_inv_sqrt(sum_sq.mul_add(inv_n, eps));
+    let rms_inv = fast_inv_sqrt(mul_add_f32(sum_sq, inv_n, eps));
 
     for v in x.iter_mut() {
         *v *= rms_inv;
@@ -769,5 +805,197 @@ mod tests {
         let x: [f32; 0] = [];
         let mut out: [f32; 0] = [];
         softmax(&x, &mut out); // パニックしない
+    }
+}
+
+// ── std / libm parity oracle ────────────────────────────────────────────────
+
+/// The `no_std` build replaces `f32::sqrt` / `f32::mul_add` with `libm::sqrtf` /
+/// `libm::fmaf`. Both pairs are IEEE 754 correctly rounded operations, so they
+/// must agree bit for bit; these tests call both directly and compare
+/// `to_bits()` (NaN: both NaN, payload not compared).
+#[cfg(test)]
+mod parity {
+    extern crate std;
+
+    /// Deterministic xorshift32 so the sweep is reproducible.
+    struct XorShift(u32);
+    impl XorShift {
+        fn next(&mut self) -> u32 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            self.0 = x;
+            x
+        }
+    }
+
+    const EDGES: [f32; 22] = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        0.5,
+        2.0,
+        f32::MIN_POSITIVE,
+        -f32::MIN_POSITIVE,
+        f32::from_bits(1),           // smallest subnormal
+        f32::from_bits(0x007f_ffff), // largest subnormal
+        f32::from_bits(0x8000_0001), // -smallest subnormal
+        f32::MAX,
+        f32::MIN,
+        f32::EPSILON,
+        1.0 + f32::EPSILON,
+        1.0 - f32::EPSILON / 2.0,
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::NAN,
+        3.402_823_5e38 / 3.0,
+        1e-30,
+        16_777_217.0,
+    ];
+
+    fn same(a: f32, b: f32) -> bool {
+        (a.is_nan() && b.is_nan()) || a.to_bits() == b.to_bits()
+    }
+
+    #[test]
+    fn libm_matches_std_sqrt_edges() {
+        for &x in &EDGES {
+            let (s, l) = (x.sqrt(), libm::sqrtf(x));
+            assert!(
+                same(s, l),
+                "sqrt({x:e}): std {s:e} ({:#010x}) libm {l:e} ({:#010x})",
+                s.to_bits(),
+                l.to_bits()
+            );
+        }
+    }
+
+    /// Every 257th bit pattern: ~16.7 M inputs covering every exponent, both
+    /// signs, subnormals, infinities and NaNs.
+    #[test]
+    fn libm_matches_std_sqrt_bit_pattern_sweep() {
+        let mut compared = 0_u64;
+        let mut bits = 0_u32;
+        loop {
+            let x = f32::from_bits(bits);
+            let (s, l) = (x.sqrt(), libm::sqrtf(x));
+            assert!(
+                same(s, l),
+                "sqrt({bits:#010x}): std {:#010x} libm {:#010x}",
+                s.to_bits(),
+                l.to_bits()
+            );
+            compared += 1;
+            match bits.checked_add(257) {
+                Some(b) => bits = b,
+                None => break,
+            }
+        }
+        assert!(compared > 16_000_000, "compared {compared}");
+    }
+
+    #[test]
+    fn libm_matches_std_fma_edges() {
+        let mut compared = 0_u32;
+        for &a in &EDGES {
+            for &b in &EDGES {
+                for &c in &EDGES {
+                    let (s, l) = (a.mul_add(b, c), libm::fmaf(a, b, c));
+                    assert!(
+                        same(s, l),
+                        "fma({a:e}, {b:e}, {c:e}): std {:#010x} libm {:#010x}",
+                        s.to_bits(),
+                        l.to_bits()
+                    );
+                    compared += 1;
+                }
+            }
+        }
+        assert_eq!(compared, 22 * 22 * 22);
+    }
+
+    /// Random bit patterns (every class of value), plus operands in the same
+    /// binade where `a * b` and `c` nearly cancel — the case where a fused and
+    /// an unfused result differ, so a non-fused fallback would be caught here.
+    #[test]
+    fn libm_matches_std_fma_random_and_cancelling() {
+        let mut rng = XorShift(0x9e37_79b9);
+        let mut fused_differs = 0_u32;
+        for _ in 0..1_000_000 {
+            let (a, b, c) = (
+                f32::from_bits(rng.next()),
+                f32::from_bits(rng.next()),
+                f32::from_bits(rng.next()),
+            );
+            let (s, l) = (a.mul_add(b, c), libm::fmaf(a, b, c));
+            assert!(
+                same(s, l),
+                "fma({:#010x}, {:#010x}, {:#010x}): std {:#010x} libm {:#010x}",
+                a.to_bits(),
+                b.to_bits(),
+                c.to_bits(),
+                s.to_bits(),
+                l.to_bits()
+            );
+        }
+        for _ in 0..1_000_000 {
+            // a, b in [1, 2); c = -(a * b) rounded, so a * b + c is the rounding error
+            let a = f32::from_bits(0x3f80_0000 | (rng.next() >> 9));
+            let b = f32::from_bits(0x3f80_0000 | (rng.next() >> 9));
+            let c = -(a * b);
+            let (s, l) = (a.mul_add(b, c), libm::fmaf(a, b, c));
+            assert!(same(s, l), "fma({a:e}, {b:e}, {c:e}): std {s:e} libm {l:e}");
+            if s.to_bits() != (a * b + c).to_bits() {
+                fused_differs += 1;
+            }
+        }
+        // the sweep exercises inputs where single rounding matters
+        assert!(fused_differs > 100_000, "fused_differs {fused_differs}");
+    }
+
+    /// The crate's own `fma` / `fast_inv_sqrt` (whichever build this is: std,
+    /// or `no_std` with `libm`) return the std result bit for bit.
+    #[test]
+    fn crate_fma_matches_std_in_this_build() {
+        let mut rng = XorShift(0x0bad_cafe);
+        for _ in 0..200_000 {
+            let a = f32::from_bits(0x3f80_0000 | (rng.next() >> 9));
+            let b = f32::from_bits(0x3f80_0000 | (rng.next() >> 9));
+            let c = -(a * b);
+            assert!(
+                same(super::fma(a, b, c), a.mul_add(b, c)),
+                "fma({a:e}, {b:e}, {c:e})"
+            );
+        }
+        for &a in &EDGES {
+            for &b in &EDGES {
+                for &c in &EDGES {
+                    assert!(
+                        same(super::fma(a, b, c), a.mul_add(b, c)),
+                        "fma({a:e}, {b:e}, {c:e})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[cfg(not(all(target_arch = "x86_64", target_feature = "sse")))]
+    #[test]
+    fn crate_inv_sqrt_matches_std_in_this_build() {
+        let mut bits = 0_u32;
+        loop {
+            let x = f32::from_bits(bits);
+            assert!(
+                same(super::fast_inv_sqrt(x), 1.0 / x.sqrt()),
+                "inv_sqrt({bits:#010x})"
+            );
+            match bits.checked_add(65_537) {
+                Some(b) => bits = b,
+                None => break,
+            }
+        }
     }
 }

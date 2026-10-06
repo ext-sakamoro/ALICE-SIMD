@@ -2,6 +2,8 @@
 name = "alice-simd"
 version = "1.0.1"
 edition = "2021"
+# measured: 1.86 rejects the `const fn` wrappers over `Vec::len` / `as_slice` (const since 1.87)
+rust-version = "1.87"
 license = "MIT OR Apache-2.0"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
 description = "Shared SIMD, branchless, and fast-math primitives for the ALICE ecosystem"
@@ -17,10 +19,21 @@ crate-type = ["rlib", "cdylib"]
 [features]
 default = ["std"]
 std = []
+# no_std float routines (`fmaf`, `sqrtf`); required when `std` is off
+libm = ["dep:libm"]
 ffi = ["std"]
+
+[dependencies]
+libm = { version = "0.2", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+# the std / no_std parity oracle calls libm directly under std
+libm = "0.2"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
 
 [[bench]]
 name = "fast_math"
