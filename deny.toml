@@ -1,0 +1,57 @@
+# cargo-deny configuration (v0.14+ schema)
+# https://embarkstudios.github.io/cargo-deny/
+#
+# The library itself has one optional dependency (`libm`, for no_std builds);
+# everything else below comes from the bench harness (criterion).
+
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+# ---------------------------------------------------------------------------
+# Advisories (RustSec + yanked)
+# ---------------------------------------------------------------------------
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+version = 2
+yanked = "deny"
+ignore = []
+
+# ---------------------------------------------------------------------------
+# Licenses (allow list)
+# ---------------------------------------------------------------------------
+[licenses]
+version = 2
+confidence-threshold = 0.8
+allow = [
+    # only the licenses present in the dependency graph; a new one is added
+    # here deliberately when a dependency brings it in
+    "MIT",
+    "Apache-2.0",
+]
+
+# ---------------------------------------------------------------------------
+# Bans
+# ---------------------------------------------------------------------------
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+deny = []
+skip = []
+skip-tree = []
+
+# ---------------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------------
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
