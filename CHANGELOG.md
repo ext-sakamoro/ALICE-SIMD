@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI: 上限の無かった 13 job に `timeout-minutes` を付けた (止まった step は共有 runner を GitHub の上限の 6 時間まで占有しうる) 値は直近の成功した run (最大 10 本、job によっては 3 本) の所要時間の最大の 2 倍・中央値の 4 倍の大きい方を 5 分単位に切り上げ、cargo を使う job は最低 15 分 (cache が外れた build のため)、他は最低 10 分 観測した最大は 2.4 分 `scripts/workflow_timeouts.py` (試験 `scripts/test_workflow_timeouts.py`、ALICE-LOL と byte 一致) が全 job の上限を検査し、job を 1 つも読めなければ失敗する CI (actionlint job) と preflight で走る
 - clippy `pedantic` / `nursery` are enabled in `Cargo.toml` `[lints.clippy]`
 - `alice_bitmask_new`, `alice_bitmask_count_ones`, `alice_bitmask_and` and `alice_aligned_vec_len` are `const fn` (C ABI and behaviour unchanged)
 
