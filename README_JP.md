@@ -175,8 +175,7 @@ aarch64 では `fast_rcp` / `fast_inv_sqrt` は直接記述した式と同じコ
 ## 最小サポート Rust バージョン
 
 Rust 1.87 (`Cargo.toml` の `rust-version`)、CI でライブラリを既定 feature と
-全 feature で検査する 1.86 は `AlignedVec` の `Vec::len` / `Vec::as_slice` を
-包む `const fn` を受け付けない 開発と CI は `rust-toolchain.toml` で固定した
+全 feature で検査する 開発と CI は `rust-toolchain.toml` で固定した
 toolchain を使う
 
 ## ビルドとテスト

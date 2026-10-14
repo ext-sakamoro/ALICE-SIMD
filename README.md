@@ -177,9 +177,8 @@ the target hardware.
 ## Minimum supported Rust version
 
 Rust 1.87 (`rust-version` in `Cargo.toml`), checked in CI for the library with
-default and all features. 1.86 rejects the `const fn` wrappers over
-`Vec::len` / `Vec::as_slice` in `AlignedVec`. Development and CI use the
-toolchain pinned in `rust-toolchain.toml`.
+default and all features. Development and CI use the toolchain pinned in
+`rust-toolchain.toml`.
 
 ## Building and testing
 

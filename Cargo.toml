@@ -2,7 +2,10 @@
 name = "alice-simd"
 version = "1.0.1"
 edition = "2021"
-# measured: 1.86 rejects the `const fn` wrappers over `Vec::len` / `as_slice` (const since 1.87)
+# kept at the toolchain already pinned in rust-toolchain.toml / CI; not required
+# by any single feature as of the `AlignedVec` rewrite that stopped wrapping
+# `Vec<T>` (the previous reason, `const fn` wrappers over `Vec::len` /
+# `Vec::as_slice`, no longer applies -- lowering this is a separate decision)
 rust-version = "1.87"
 license = "MIT OR Apache-2.0"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]

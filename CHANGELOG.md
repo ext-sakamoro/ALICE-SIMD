@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - clippy `pedantic` / `nursery` are enabled in `Cargo.toml` `[lints.clippy]`
 - `alice_bitmask_new`, `alice_bitmask_count_ones`, `alice_bitmask_and` and `alice_aligned_vec_len` are `const fn` (C ABI and behaviour unchanged)
+- **Behavior change:** `AlignedVec<T>` now allocates its own buffer directly against the global allocator with an explicit 32-byte-or-`align_of::<T>()` `Layout`, instead of wrapping `alloc::vec::Vec<T>`. The previous implementation's alignment was only ever `align_of::<T>()` in practice (`Vec<T>` makes no stronger guarantee); CI on Windows caught the gap when the crate's own doctest assertion failed for `AlignedVec<f32>` (`left 16 right 0`). The public API (method signatures, trait impls) is unchanged
 
 ### Fixed
 
