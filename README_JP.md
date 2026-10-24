@@ -193,7 +193,6 @@ scripts/preflight.sh --quick    # static checks, builds, docs and `cargo test --
 
 ## ライセンス
 
-以下のいずれかを選択できる
+`LicenseRef-Proprietary` 条文は [LICENSE-Proprietary](LICENSE-Proprietary)
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE](LICENSE))
+Enquiries: https://extoria.co.jp/

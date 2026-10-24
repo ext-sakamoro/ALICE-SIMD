@@ -195,9 +195,6 @@ scripts/preflight.sh --quick    # static checks, builds, docs and `cargo test --
 
 ## License
 
-Licensed under either of
+`LicenseRef-Proprietary`. The text is [LICENSE-Proprietary](LICENSE-Proprietary).
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE](LICENSE))
-
-at your option.
+Enquiries: https://extoria.co.jp/

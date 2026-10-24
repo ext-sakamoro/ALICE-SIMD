@@ -4,7 +4,7 @@ version = "1.0.1"
 edition = "2021"
 # measured: 1.86 rejects the `const fn` wrappers over `Vec::len` / `as_slice` (const since 1.87)
 rust-version = "1.87"
-license = "MIT OR Apache-2.0"
+license = "LicenseRef-Proprietary"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
 description = "Shared SIMD, branchless, and fast-math primitives for the ALICE ecosystem"
 publish = false
